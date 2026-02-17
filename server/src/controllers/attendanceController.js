@@ -71,7 +71,15 @@ const getAttendance = async (req, res) => {
     if (!req.user) return res.status(401).json({ message: 'User not found' });
     let query = { organization: req.user.organization };
 
-    if (employeeId) query.employee = employeeId;
+    // If the requester is an Employee, restrict results to their own employee record
+    if (req.user.role === 'Employee') {
+        const emp = await Employee.findOne({ user: req.user._id });
+        if (!emp) return res.status(404).json({ message: 'Employee profile not found' });
+        query.employee = emp._id;
+    } else {
+        // Admins/HR can optionally pass employeeId to filter
+        if (employeeId) query.employee = employeeId;
+    }
 
     if (month && year) {
         const startDate = new Date(year, month - 1, 1);
