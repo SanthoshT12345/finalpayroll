@@ -133,6 +133,27 @@ const Attendance = () => {
         }
     };
 
+    const handleMarkHoliday = async () => {
+        if (isClosed) return alert('Attendance is closed for this date.');
+        
+        if (!window.confirm(`Are you sure you want to mark ${new Date(viewDate).toLocaleDateString()} as a holiday for ALL active employees? This will overwrite existing records.`)) {
+            return;
+        }
+
+        try {
+            setLoading(true);
+            await api.post('/attendance/holiday', { date: viewDate });
+            alert('Holiday marked successfully for all employees.');
+            fetchDailyReport();
+        } catch (error) {
+            console.error('Error marking holiday', error);
+            const errorMessage = error.response?.data?.message || error.message || 'Failed to mark holiday';
+            alert(`Error: ${errorMessage}`);
+        } finally {
+            setLoading(false);
+        }
+    };
+
     // --- RENDER FOR EMPLOYEE ---
     if (user.role === 'Employee') {
         const handleSelfMark = async (status) => {
@@ -197,13 +218,18 @@ const Attendance = () => {
                 </div>
                 <div className="flex gap-3">
                     {isClosed ? (
-                        <button onClick={() => handleToggleClosure(false)} className="flex items-center gap-2 bg-yellow-500 text-white px-4 py-2 rounded hover:bg-yellow-600">
+                        <button onClick={() => handleToggleClosure(false)} className="flex items-center gap-2 bg-yellow-500 text-white px-4 py-2 rounded hover:bg-yellow-600 transition-colors">
                             <FaLockOpen /> Reopen Day
                         </button>
                     ) : (
-                        <button onClick={() => handleToggleClosure(true)} className="flex items-center gap-2 bg-red-600 text-white px-4 py-2 rounded hover:bg-red-700">
-                            <FaLock /> Close Day
-                        </button>
+                        <div className="flex gap-2">
+                            <button onClick={handleMarkHoliday} className="flex items-center gap-2 bg-purple-600 text-white px-4 py-2 rounded hover:bg-purple-700 transition-colors shadow-sm">
+                                <FaUmbrellaBeach /> Mark Holiday
+                            </button>
+                            <button onClick={() => handleToggleClosure(true)} className="flex items-center gap-2 bg-red-600 text-white px-4 py-2 rounded hover:bg-red-700 transition-colors shadow-sm">
+                                <FaLock /> Close Day
+                            </button>
+                        </div>
                     )}
                 </div>
             </div>

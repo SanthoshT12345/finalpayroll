@@ -5,7 +5,8 @@ const {
     getAttendance,
     closeAttendance,
     reopenAttendance,
-    getClosureStatus
+    getClosureStatus,
+    markHolidayForAll
 } = require('../controllers/attendanceController');
 const { protect, authorize } = require('../middleware/authMiddleware');
 
@@ -16,5 +17,6 @@ router.route('/')
 router.get('/closure-status', protect, authorize('Super Admin', 'HR Admin', 'Payroll Admin', 'Employee'), getClosureStatus);
 router.post('/close', protect, authorize('HR Admin', 'Super Admin'), closeAttendance);
 router.post('/reopen', protect, authorize('HR Admin', 'Super Admin'), reopenAttendance);
+router.post('/holiday', protect, authorize('HR Admin', 'Super Admin', 'Payroll Admin'), markHolidayForAll);
 
 module.exports = router;

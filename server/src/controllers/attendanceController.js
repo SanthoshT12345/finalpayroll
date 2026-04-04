@@ -168,10 +168,74 @@ const getClosureStatus = async (req, res) => {
     }
 };
 
+// @desc    Mark holiday for all employees for a date
+// @route   POST /api/attendance/holiday
+// @access  Private (Admin/HR)
+const markHolidayForAll = async (req, res) => {
+    try {
+        console.log('markHolidayForAll called for date:', req.body.date);
+        const { date } = req.body;
+        if (!date) {
+            return res.status(400).json({ message: 'Date is required' });
+        }
+
+        const holidayDate = new Date(date);
+        holidayDate.setHours(0, 0, 0, 0);
+
+        const organization = req.user.organization;
+        console.log('Org ID:', organization);
+
+        // 1. Fetch all active employees in this organization
+        const activeEmployees = await Employee.find({ 
+            organization, 
+            status: 'Active' 
+        });
+
+        console.log('Active employees found:', activeEmployees.length);
+
+        if (activeEmployees.length === 0) {
+            return res.status(404).json({ message: 'No active employees found in your organization' });
+        }
+
+        // 2. Prepare bulk operations for upserting attendance records
+        const bulkOps = activeEmployees.map(emp => ({
+            updateOne: {
+                filter: { 
+                    employee: emp._id, 
+                    date: holidayDate,
+                    organization: organization
+                },
+                update: {
+                    $set: {
+                        status: 'Holiday',
+                        isLOP: false,
+                        checkIn: null,
+                        checkOut: null,
+                        workHours: 0,
+                        overtimeHours: 0
+                    }
+                },
+                upsert: true
+            }
+        }));
+
+        const result = await Attendance.bulkWrite(bulkOps);
+        console.log('BulkWrite result:', result);
+
+        res.status(200).json({ 
+            message: `Holiday marked successfully for ${activeEmployees.length} employees for ${holidayDate.toDateString()}` 
+        });
+    } catch (error) {
+        console.error('Error in markHolidayForAll:', error);
+        res.status(500).json({ message: `Server error: ${error.message}` });
+    }
+};
+
 module.exports = {
     markAttendance,
     getAttendance,
     closeAttendance,
     reopenAttendance,
-    getClosureStatus
+    getClosureStatus,
+    markHolidayForAll
 };

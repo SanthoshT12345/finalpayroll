@@ -91,6 +91,34 @@ const runPayroll = async (req, res) => {
 const generatePayrollBatch = async (employees, month, year, organization, statutory, res, userId, ip) => {
     const results = [];
     const totalDays = getDaysInMonth(month, year);
+    // Pre-calculate organization holidays for this month using local date matching
+    // Using start/end at midnight local to capture all records for the month
+    const startOfMonth = new Date(year, month - 1, 1, 0, 0, 0, 0);
+    const endOfMonth = new Date(year, month - 1, totalDays, 23, 59, 59, 999);
+
+    const holidayRecords = await Attendance.find({
+        organization,
+        status: 'Holiday',
+        date: { $gte: startOfMonth, $lte: endOfMonth }
+    });
+    // Extract unique day numbers in local time
+    const holidayDates = [...new Set(holidayRecords.map(r => new Date(r.date).getDate()))];
+
+    // Calculate base working days (Exclude Sundays and Holidays)
+    let baseWorkingDays = 0;
+    const workingDates = []; // Days that are neither Sunday nor Holiday
+
+    for (let d = 1; d <= totalDays; d++) {
+        // Use local date for consistent day-of-week calculation
+        const currentDate = new Date(year, month - 1, d);
+        const isSunday = currentDate.getDay() === 0;
+        const isHoliday = holidayDates.includes(d);
+
+        if (!isSunday && !isHoliday) {
+            baseWorkingDays++;
+            workingDates.push(d);
+        }
+    }
 
     // Optimize: Fetch all structures populated
     const structures = await SalaryStructure.find({ organization }).populate('components.component');
@@ -108,57 +136,48 @@ const generatePayrollBatch = async (employees, month, year, organization, statut
         console.log(`Processing ${emp.employeeId} (${emp.user?.name}) with Structure: ${structure.name}`);
 
         // Attendance Logic
-        const startDate = new Date(year, month - 1, 1);
-        startDate.setHours(0, 0, 0, 0);
-        const endDate = new Date(year, month, 0);
-        endDate.setHours(23, 59, 59, 999);
-
         const attendanceRecords = await Attendance.find({
             employee: emp._id,
-            date: { $gte: startDate, $lte: endDate }
+            date: { $gte: startOfMonth, $lte: endOfMonth }
         });
 
-        // Calculate paid days by counting actual paid attendance records
-        // Present, Leave (paid), Holiday = 1 full day each
+        // Calculate paid days only on "Working Days" (denominator exclusion logic)
+        // Present, Leave (paid) = 1 full day each
         // Half Day = 0.5 days
-        // AUTOMATION: Unmarked Sundays = 1 Paid Day
-        // Absent, LOP, or unmarked non-Sundays = 0 days (LOP)
+        // Automation: Unmarked Working Days = 1 Paid Day (Assuming full attendance if not marked otherwise)
+        // LOP, Absent, or Marked Holiday/Sunday (if they are already excluded from denominator) = 0 days
 
         let calculatedPaidDays = 0;
 
-        for (let d = 1; d <= totalDays; d++) {
-            // Using getUTCDate() and getUTCDay() for consistency with attendance record dates
-            const currentDate = new Date(year, month - 1, d);
-
-            // Check if there's a record for this specific day
+        for (const d of workingDates) {
+            // Check if there's a record for this specific day (local date match)
             const record = attendanceRecords.find(r =>
-                new Date(r.date).getUTCDate() === d
+                new Date(r.date).getDate() === d
             );
 
             if (record) {
                 if (record.status === 'Present') calculatedPaidDays += 1;
                 else if (record.status === 'Leave' && record.isLOP !== true) calculatedPaidDays += 1;
-                else if (record.status === 'Holiday') calculatedPaidDays += 1;
                 else if (record.status === 'Half Day') calculatedPaidDays += 0.5;
-                // Absent or isLOP=true adds 0
+                // 'Absent', 'Holiday', or status with isLOP=true adds 0
             } else {
-                // Automation: If unmarked and is Sunday, count as paid
-                if (currentDate.getDay() === 0) { // 0 is Sunday
-                    calculatedPaidDays += 1;
-                }
+                // Automation: If unmarked and it's a working day, count as paid (standard practice for "Present by default")
+                calculatedPaidDays += 1;
             }
         }
 
         const paidDays = calculatedPaidDays;
+        const workingDays = baseWorkingDays;
 
         // Overtime Calculation
         const totalOvertimeHours = attendanceRecords.reduce((sum, r) => sum + (r.overtimeHours || 0), 0);
 
-        // LOP days = Total days - Paid days
-        const lopDays = totalDays - paidDays;
+        // LOP days = Total working days - Paid days
+        const lopDays = Math.max(0, workingDays - paidDays);
 
         // Pay ratio for pro-rata salary calculation
-        const payRatio = paidDays / totalDays;
+        // Ensure denominator is not 0
+        const payRatio = workingDays > 0 ? (paidDays / workingDays) : 0;
 
         const processedEarnings = [];
         const processedDeductions = [];
@@ -173,8 +192,8 @@ const generatePayrollBatch = async (employees, month, year, organization, statut
         if (basicCompItem) {
             const fullBasic = basicCompItem.value || basicCompItem.component.value;
             basicAmount = Math.round(fullBasic * payRatio);
-            // Assuming 8 hours * 30 days = 240 hours per month for OT rate reference
-            perHourBasic = fullBasic / (totalDays * 8);
+            // Assuming 8 hours * 25 days (avg) per month for OT rate reference
+            perHourBasic = fullBasic / (workingDays * 8);
         }
 
         // Process all components
@@ -288,7 +307,7 @@ const generatePayrollBatch = async (employees, month, year, organization, statut
                 employee: emp._id,
                 month,
                 year,
-                workingDays: totalDays,
+                workingDays,
                 presentDays: paidDays,
                 lopDays,
                 overtimeHours: totalOvertimeHours,

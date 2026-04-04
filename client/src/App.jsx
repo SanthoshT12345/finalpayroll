@@ -18,6 +18,7 @@ import SalaryStructure from './pages/SalaryStructure';
 import PayrollProfileList from './pages/PayrollProfileList';
 import PayrollProfileForm from './pages/PayrollProfileForm';
 import Unauthorized from './pages/Unauthorized';
+import LandingPage from './pages/LandingPage';
 import ProtectedRoute from './components/ProtectedRoute';
 import Layout from './components/Layout';
 
@@ -26,6 +27,7 @@ function App() {
     <Router>
       <AuthProvider>
         <Routes>
+          <Route path="/" element={<LandingPage />} />
           <Route path="/login" element={<Login />} />
           <Route path="/register" element={<Register />} />
           <Route path="/unauthorized" element={<Unauthorized />} />
@@ -81,7 +83,6 @@ function App() {
                 </ProtectedRoute>
               } />
             </Route>
-            <Route path="/" element={<Navigate to="/login" replace />} />
           </Route>
         </Routes>
       </AuthProvider>
