@@ -3,12 +3,13 @@ import Sidebar from './Sidebar';
 import { useContext, useState, useEffect } from 'react';
 import AuthContext from '../context/AuthContext';
 import api from '../utils/api';
-import { FaUserCircle, FaSignOutAlt, FaBell, FaCheckCircle, FaTrash } from 'react-icons/fa';
+import { FaUserCircle, FaSignOutAlt, FaBell, FaCheckCircle, FaTrash, FaBars } from 'react-icons/fa';
 
 const Layout = () => {
     const { user, logout } = useContext(AuthContext);
     const [notifications, setNotifications] = useState([]);
     const [showNotifications, setShowNotifications] = useState(false);
+    const [isSidebarOpen, setIsSidebarOpen] = useState(false);
 
     useEffect(() => {
         if (user) {
@@ -39,16 +40,32 @@ const Layout = () => {
 
     return (
         <div className="flex h-screen bg-gray-50 font-sans">
-            <Sidebar />
+            {/* Mobile Sidebar Overlay */}
+            {isSidebarOpen && (
+                <div 
+                    className="fixed inset-0 bg-black/50 z-40 md:hidden transition-opacity"
+                    onClick={() => setIsSidebarOpen(false)}
+                />
+            )}
 
-            <div className="flex flex-col flex-1 overflow-hidden relative">
+            <Sidebar isOpen={isSidebarOpen} setIsOpen={setIsSidebarOpen} />
+
+            <div className="flex flex-col flex-1 overflow-hidden relative w-full">
                 {/* Header */}
-                <header className="flex items-center justify-between px-8 py-5 bg-white shadow-sm border-b border-gray-200 z-20">
-                    <h2 className="text-xl font-bold text-gray-800 tracking-tight">
-                        <span className="text-blue-600">Payroll</span> Management System
-                    </h2>
+                <header className="flex items-center justify-between px-4 md:px-8 py-5 bg-white shadow-sm border-b border-gray-200 z-20">
+                    <div className="flex items-center gap-3">
+                        <button 
+                            onClick={() => setIsSidebarOpen(true)}
+                            className="md:hidden text-gray-600 focus:outline-none"
+                        >
+                            <FaBars size={24} />
+                        </button>
+                        <h2 className="text-lg md:text-xl font-bold text-gray-800 tracking-tight hidden sm:block">
+                            <span className="text-blue-600">Payroll</span> Management System
+                        </h2>
+                    </div>
 
-                    <div className="flex items-center space-x-6">
+                    <div className="flex items-center space-x-4 md:space-x-6">
                         {/* Notification Bell */}
                         <div className="relative">
                             <button
@@ -128,7 +145,7 @@ const Layout = () => {
                 </header>
 
                 {/* Main Content Area */}
-                <main className="flex-1 overflow-x-hidden overflow-y-auto bg-gray-50 p-8">
+                <main className="flex-1 overflow-x-hidden overflow-y-auto bg-gray-50 p-4 md:p-8">
                     <div className="max-w-7xl mx-auto">
                         <Outlet />
                     </div>

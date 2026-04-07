@@ -4,10 +4,10 @@ import AuthContext from '../context/AuthContext';
 import {
     FaHome, FaBuilding, FaUsers, FaMoneyBillWave,
     FaCalendarCheck, FaFileInvoiceDollar, FaFileContract,
-    FaChartBar, FaCalculator, FaUserCog
+    FaChartBar, FaCalculator, FaUserCog, FaTimes
 } from 'react-icons/fa';
 
-const Sidebar = () => {
+const Sidebar = ({ isOpen, setIsOpen }) => {
     const { user } = useContext(AuthContext);
     const location = useLocation();
 
@@ -26,13 +26,19 @@ const Sidebar = () => {
     ];
 
     return (
-        <div className="flex flex-col w-64 min-h-screen bg-gradient-to-b from-gray-900 to-gray-800 text-white transition-all duration-300 shadow-xl">
+        <div className={`fixed inset-y-0 left-0 z-50 flex flex-col w-64 min-h-screen bg-gradient-to-b from-gray-900 to-gray-800 text-white transition-transform duration-300 shadow-xl md:static md:translate-x-0 ${isOpen ? 'translate-x-0' : '-translate-x-full'}`}>
             {/* Logo Section */}
-            <div className="flex items-center justify-center h-20 border-b border-gray-700 bg-gray-900/50">
-                <div className="flex items-center space-x-2">
+            <div className="flex items-center justify-between md:justify-center h-20 px-4 md:px-0 border-b border-gray-700 bg-gray-900/50">
+                <div className="flex items-center space-x-2 w-full justify-center">
                     <span className="text-2xl font-bold tracking-wider text-blue-400">Payroll</span>
                     <span className="text-2xl font-light text-white">Pro</span>
                 </div>
+                <button 
+                    onClick={() => setIsOpen && setIsOpen(false)}
+                    className="md:hidden text-gray-400 hover:text-white"
+                >
+                    <FaTimes size={24} />
+                </button>
             </div>
 
             {/* Navigation Section */}
@@ -43,6 +49,7 @@ const Sidebar = () => {
                             <Link
                                 key={item.name}
                                 to={item.href}
+                                onClick={() => setIsOpen && setIsOpen(false)}
                                 className={`group flex items-center px-4 py-3 text-sm font-medium rounded-xl transition-all duration-200 
                                     ${location.pathname === item.href
                                         ? 'bg-blue-600 text-white shadow-lg shadow-blue-500/30'

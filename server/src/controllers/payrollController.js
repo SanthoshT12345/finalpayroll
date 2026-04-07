@@ -119,6 +119,7 @@ const generatePayrollBatch = async (employees, month, year, organization, statut
             workingDates.push(d);
         }
     }
+    console.log(`[DEBUG] generatePayrollBatch: month=${month}, year=${year}, totalDays=${totalDays}, holidayDatesLength=${holidayDates.length}, baseWorkingDays=${baseWorkingDays}`);
 
     // Optimize: Fetch all structures populated
     const structures = await SalaryStructure.find({ organization }).populate('components.component');
